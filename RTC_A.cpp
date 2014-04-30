@@ -1,46 +1,102 @@
 #include "RTC_A.h"
-//#include <inttypes.h>
-//#include <stdio.h>
-
-#include "wiring_private.h"
 
 static RTC_MODE _Mode;
-static volatile voidFuncPtr intUserFunc[3];
+static volatile voidFuncPtr intUserFunc[5];
 
-void RTC_init(RTCSRC Source)
- {
-  
+void RTC_init(uint8_t PrescRT0, uint8_t PrescRT0int, uint8_t SourceRT1, uint8_t PrescRT1, uint8_t PrescRT1int){
+ 
+  SelectSource(RTCSRC_XT1);
   _Mode = RTCMODE_COUNTER;
+  RTCCTL01 = RTCHOLD; // disable interrupts, enable coutner mode, clear flags, hold is set, clock source = ACLK 
   
-  // if(_Mode==RTCMODE_CALENDAR) RTCCTL1 = RTCMODE + RTCHOLD ;
-  // if(_Mode==RTCMODE_COUNTER) RTCCTL1 = RTCHOLD ;
-// Enable 32kHz ACLK
-                  // Select XIN, XOUT on P5.0 and P5.1
-             // XT1 On, Highest drive strength
-    UCSCTL6 |= XCAP_3;          // Internal load cap
-
-	/////RTCCTL1 = BIT5;
-    //RTCCTL1 = RTCMODE + RTCHOLD ;
-	//RTCCTL01 &= ~RTCHOLD;  
-	//RTCCTL1&= ~RTCHOLD;
+  RTCPS0CTL = PrescRT0 + RT0PSHOLD + PrescRT0int;
+  RTCPS1CTL = SourceRT1 + PrescRT1 + RT1PSHOLD + PrescRT1int;
 }
 
-void RTC_init(RTCSRC Source, uint8_t Second, uint8_t Minute, uint8_t Hour, uint8_t Day, uint8_t DOW, uint8_t Month, uint16_t Year) {
+void RTC_stopCounter0(void){
 
-_Mode = RTCMODE_CALENDAR;
+ RTCPS0CTL &= ~RT0PSHOLD;
 
-SelectSource(Source); // select clock source 
+}
 
-RTCCTL1 = BIT5; // enable calendar mode
+void RTC_startCounter0(void){
 
-RTCSEC = Second;
-RTCMIN = Minute;
-RTCHOUR = Hour;
-RTCDAY = Day;
-RTCDOW = DOW;
-RTCMON = Month;
-RTCYEARL = Year & 0xFF;
-RTCYEARH = Year >> 8;
+RTCPS0CTL |= RT0PSHOLD;
+
+}
+
+void RTC_resetCounter0(void){
+
+}
+
+void RTC_enableCounter0Interrupt(void (*userFunc)(void)) {
+
+intUserFunc[RTC_INT_RTCPS0]=userFunc;
+RTC_disableCounter1Interrupt();
+RTCPS0CTL |= RT0PSIE;
+
+}
+
+void RTC_disableCounter0Interrupt(void) {
+
+RTCPS0CTL&= ~RT0PSIE;
+RTCPS0CTL&= ~RT0PSIFG;
+
+}
+
+void RTC_stopCounter1(void){
+
+ RTCPS1CTL &= ~RT1PSHOLD;
+ 
+}
+
+void RTC_startCounter1(void){
+
+RTCPS1CTL |= RT1PSHOLD;
+
+}
+
+void RTC_resetCounter1(void){
+
+}
+
+void RTC_enableCounter1Interrupt(void (*userFunc)(void)) {
+
+intUserFunc[RTC_INT_RTCPS1]=userFunc;
+RTC_disableCounter1Interrupt();
+RTCPS1CTL |= RT1PSIE;
+
+}
+
+void RTC_disableCounter1Interrupt(void) {
+
+RTCPS1CTL&= ~RT1PSIE;
+RTCPS1CTL&= ~RT1PSIFG;
+
+}
+
+void RTC_init(uint8_t Second, uint8_t Minute, uint8_t Hour, uint8_t Day, RTC_DOW DOW, uint8_t Month, uint16_t Year) {
+
+_Mode = RTCMODE_CALENDAR; // set calendar mode
+
+SelectSource(RTCSRC_XT1); // select clock source 
+
+RTCCTL01 = RTCMODE; // disable interrupts, enable calendar mode, clear flags, clear hold, clock source = ACLK
+
+RTC_setTime(Second, Minute, Hour, Day, DOW, Month, Year); // setTime
+
+}
+
+void RTC_setTime(uint8_t Second, uint8_t Minute, uint8_t Hour, uint8_t Day, RTC_DOW DOW, uint8_t Month, uint16_t Year) {
+
+RTCSEC = constrain(Second,0,59);
+RTCMIN = constrain(Minute,0,59);
+RTCHOUR = constrain(Hour,0,23);
+RTCDAY = constrain(Day,1,31);
+RTCDOW = constrain(DOW,0,6);
+RTCMON = constrain(Month,1,12);
+RTCYEAR = constrain(Year,0,4095);
+
 }
 
 void SelectSource(RTCSRC Source) {
@@ -51,81 +107,82 @@ case RTCSRC_VLO:
 break;
 
 case RTCSRC_XT1:
-P5SEL |= 0x03;
-UCSCTL6 &= ~XT1OFF;
-UCSCTL6 |= XCAP_3; 
+ P5SEL |= 0x03;
+ UCSCTL6 &= ~XT1OFF;
+ UCSCTL6 |= XCAP_3; 
 break;
 
 }
 
 }
 
-uint8_t RTC_GetSecond() {
+uint8_t RTC_getSecond(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCSEC;
 } else return 0;
 
 }
 
-uint8_t RTC_GetMinute() {
+uint8_t RTC_getMinute(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCMIN;
 } else return 0;
 
 }
 
-uint8_t RTC_GetHour() {
+uint8_t RTC_getHour(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCHOUR;
 } else return 0;
 }
 
-uint8_t RTC_GetDay() {
+uint8_t RTC_getDay(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCDAY;
 } else return 0;
 
 }
 
-uint8_t RTC_GetDayOfWeek() {
+uint8_t RTC_getDayOfWeek(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCDOW;
 } else return 0;
 
 }
 
-uint8_t RTC_GetMonth() {
+uint8_t RTC_getMonth(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
 return RTCMON;
 }else return 0;
 
 }
 
-uint16_t RTC_GetYear() {
+uint16_t RTC_getYear(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL1 & RTCRDY); // wait for a safe reading
-return RTCYEARL + RTCYEARH<<8;
+while(RTCCTL01 & RTCRDY); // wait for a safe reading
+return RTCYEAR;
 } else return 0;
 
 }
 
-void RTC_SetAlarm(int8_t Minute, int8_t Hour, int8_t Day, int8_t DOW, void (*userFunc)(void))
-{
+void RTC_setAlarm(int8_t Minute, int8_t Hour, int8_t Day, RTC_DOW DOW, void (*userFunc)(void)){
 
 intUserFunc[RTC_INT_ALARM]=userFunc;
+
+RTC_disableAlarm(); // alarm interrupt have to be disabled to avoid errors
 
 if (Minute!=-1) {
 constrain(Minute,0,59);
@@ -146,53 +203,95 @@ if (Day!=-1) {
 constrain(Day,1,31);
 RTCADAY = Day | 0x80;
 } else  RTCADAY = 0;
-}
-
-void RTC_EnableAlarm(){
 
 RTCCTL0|= RTCAIE;
 
 }
 
-void RTC_DisableAlarm(){
+void RTC_disableAlarm(void){
 
-RTCCTL0 &= ~RTCAIE;
+RTCCTL0 &= ~RTCAIE; // disable alarm interrupt
+RTCCTL0 &= ~RTCAIFG; // clear alarm interrupt flag
 
 }
 
 void RTC_enableInterrupt(RTCFREQ Freq, void (*userFunc)(void)) {
 
 intUserFunc[RTC_INT_TIME_EVENT]=userFunc;
-RTCCTL1 = (RTCCTL1&0xFC) | Freq; // configure interrupt frequency
-RTCCTL0|= RTCTEVIE;
+
+RTC_disableInterrupt(); //reet time event interrupt registers
+
+RTCCTL1 = (RTCCTL1 & 0xFC) | Freq; // configure interrupt frequency
+
+RTCCTL0|= RTCTEVIE; // enable time event interrupt
 
 }
 
 void RTC_disableInterrupt(void){
-RTCCTL0&= ~RTCTEVIE;
+
+RTCCTL0&= ~RTCTEVIE; // disable time event interrupt
+RTCCTL0 &= ~RTCTEVIFG; // clear time event interrupt flag
+
 }
 
 void RTC_enableRTCInterrupt(void (*userFunc)(void)) {
 
 intUserFunc[RTC_INT_RTC]=userFunc;
-RTCCTL0|= RTCRDYIE;
+
+RTC_disableRTCInterrupt(); // reset interrupt registers
+
+RTCCTL0|= RTCRDYIE; // enable interrupt
 
 }
 
 void RTC_disableRTCInterrupt(void){
 
-RTCCTL0&= ~RTCRDYIE;
+RTCCTL0&= ~RTCRDYIE; // disable interrupt
+RTCCTL0 &= ~RTCRDYIFG; // clear interrupt flag
 
 }
 
-  __attribute__((interrupt(RTC_A_VECTOR)))
+void RTC_setCalibration(int8_t Correction) {
+
+if(Correction<0) RTCCTL23 = Correction & 0x3F;
+else   RTCCTL23 = RTCCALS | (Correction & 0x3F);
+}
+
+ __attribute__((interrupt(RTC_A_VECTOR)))
 void RTC_int(void)
 {
 
-volatile uint8_t Value = RTCIV;
+volatile uint16_t Value = RTCIV ; // when RTCIV is read, the highest interrupt flag is cleared so we have to store it
 
- if(Value & RTCIV_RTCRDYIFG && intUserFunc[RTC_INT_RTC]) intUserFunc[RTC_INT_RTC]();
- if(Value & RTCIV_RTCTEVIFG && intUserFunc[RTC_INT_TIME_EVENT]) intUserFunc[RTC_INT_TIME_EVENT]();
- if(Value & RTCIV_RTCAIFG && intUserFunc[RTC_INT_ALARM]) intUserFunc[RTC_INT_ALARM](); 
+while(Value!=0) {
+
+ if((Value==RTCIV_RT1PSIFG ) && intUserFunc[RTC_INT_RTCPS1]) {
+ RTCCTL1 &= ~RT1PSIFG;
+ intUserFunc[RTC_INT_RTCPS1]();
+ }
+ 
+  if((Value==RTCIV_RT0PSIFG ) && intUserFunc[RTC_INT_RTCPS0]) {
+ RTCCTL0 &= ~RT0PSIFG;
+ intUserFunc[RTC_INT_RTCPS0]();
+}
+
+ if((Value==RTCIV_RTCRDYIFG) && intUserFunc[RTC_INT_RTC]) {
+ RTCCTL0 &= ~RTCRDYIFG;
+ intUserFunc[RTC_INT_RTC]();
+ }
+ 
+ if((Value==RTCIV_RTCTEVIFG) && intUserFunc[RTC_INT_TIME_EVENT]) {
+ RTCCTL0 &= ~RTCTEVIFG;
+ intUserFunc[RTC_INT_TIME_EVENT]();
+ }
+ 
+ if((Value==RTCIV_RTCAIFG) && intUserFunc[RTC_INT_ALARM]) {
+ RTCCTL0 &= ~RTCAIFG;
+ intUserFunc[RTC_INT_ALARM](); 
+}
+
+ Value = RTCIV;
+ 
+ } 
 
 }  
