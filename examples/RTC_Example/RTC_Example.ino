@@ -2,6 +2,8 @@
 
 void setup()
 {
+
+  WDTCTL = WDTPW | WDTHOLD; // disable watchdog. Necessary if you want to use low power
   
   RTC_init(0,30,12,3, MONDAY,6,1987); // enable calendar mode, 12:30 3/6/1987
   
