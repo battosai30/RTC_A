@@ -119,7 +119,7 @@ break;
 uint8_t RTC_getSecond(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCSEC;
 } else return 0;
 
@@ -128,7 +128,7 @@ return RTCSEC;
 uint8_t RTC_getMinute(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCMIN;
 } else return 0;
 
@@ -137,7 +137,7 @@ return RTCMIN;
 uint8_t RTC_getHour(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCHOUR;
 } else return 0;
 }
@@ -145,7 +145,7 @@ return RTCHOUR;
 uint8_t RTC_getDay(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCDAY;
 } else return 0;
 
@@ -154,7 +154,7 @@ return RTCDAY;
 uint8_t RTC_getDayOfWeek(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCDOW;
 } else return 0;
 
@@ -163,7 +163,7 @@ return RTCDOW;
 uint8_t RTC_getMonth(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCMON;
 }else return 0;
 
@@ -172,7 +172,7 @@ return RTCMON;
 uint16_t RTC_getYear(void) {
 
 if(_Mode==RTCMODE_CALENDAR) {
-while(RTCCTL01 & RTCRDY); // wait for a safe reading
+while((RTCCTL01 & RTCRDY)==0); // wait for a safe reading
 return RTCYEAR;
 } else return 0;
 
@@ -268,26 +268,31 @@ while(Value!=0) {
  if((Value==RTCIV_RT1PSIFG ) && intUserFunc[RTC_INT_RTCPS1]) {
  RTCCTL1 &= ~RT1PSIFG;
  intUserFunc[RTC_INT_RTCPS1]();
+ LPM3_EXIT;
  }
  
   if((Value==RTCIV_RT0PSIFG ) && intUserFunc[RTC_INT_RTCPS0]) {
  RTCCTL0 &= ~RT0PSIFG;
  intUserFunc[RTC_INT_RTCPS0]();
+ LPM3_EXIT;
 }
 
  if((Value==RTCIV_RTCRDYIFG) && intUserFunc[RTC_INT_RTC]) {
  RTCCTL0 &= ~RTCRDYIFG;
  intUserFunc[RTC_INT_RTC]();
+ LPM3_EXIT;
  }
  
  if((Value==RTCIV_RTCTEVIFG) && intUserFunc[RTC_INT_TIME_EVENT]) {
  RTCCTL0 &= ~RTCTEVIFG;
  intUserFunc[RTC_INT_TIME_EVENT]();
+  LPM3_EXIT;
  }
  
  if((Value==RTCIV_RTCAIFG) && intUserFunc[RTC_INT_ALARM]) {
  RTCCTL0 &= ~RTCAIFG;
  intUserFunc[RTC_INT_ALARM](); 
+  LPM3_EXIT;
 }
 
  Value = RTCIV;
